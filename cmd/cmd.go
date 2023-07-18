@@ -204,7 +204,7 @@ func RunGenerate(cmd *cobra.Command, args []string) error {
 	return generateBatch(cmd, args[0])
 }
 
-var generateContextKey struct{}
+type generateContextKey string
 
 func generate(cmd *cobra.Command, model, prompt string) error {
 	if len(strings.TrimSpace(prompt)) > 0 {
@@ -215,22 +215,25 @@ func generate(cmd *cobra.Command, model, prompt string) error {
 
 		var latest api.GenerateResponse
 
-		generateContext, ok := cmd.Context().Value(generateContextKey).([]int)
+		generateContext, ok := cmd.Context().Value(generateContextKey("context")).([]int)
 		if !ok {
 			generateContext = []int{}
 		}
 
-		request := api.GenerateRequest{Model: model, Prompt: prompt, Context: generateContext}
-		fn := func(resp api.GenerateResponse) error {
+		generateSession, ok := cmd.Context().Value(generateContextKey("session")).(int64)
+		if !ok {
+			generateSession = 0
+		}
+
+		request := api.GenerateRequest{Model: model, Prompt: prompt, Context: generateContext, SessionID: generateSession}
+		fn := func(response api.GenerateResponse) error {
 			if !spinner.IsFinished() {
 				spinner.Finish()
 			}
 
-			latest = resp
+			latest = response
 
-			fmt.Print(resp.Response)
-
-			cmd.SetContext(context.WithValue(cmd.Context(), generateContextKey, resp.Context))
+			fmt.Print(response.Response)
 			return nil
 		}
 
@@ -249,6 +252,11 @@ func generate(cmd *cobra.Command, model, prompt string) error {
 		if verbose {
 			latest.Summary()
 		}
+
+		ctx := cmd.Context()
+		ctx = context.WithValue(ctx, generateContextKey("context"), latest.Context)
+		ctx = context.WithValue(ctx, generateContextKey("session"), latest.SessionID)
+		cmd.SetContext(ctx)
 	}
 
 	return nil
