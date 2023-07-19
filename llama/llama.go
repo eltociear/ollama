@@ -85,6 +85,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"sync"
 	"unicode/utf8"
 	"unsafe"
 
@@ -99,6 +100,9 @@ type LLM struct {
 	lastN  deque[C.llama_token]
 	embd   []C.llama_token
 	cursor int
+
+	mu sync.Mutex
+	gc bool
 
 	api.Options
 }
@@ -151,6 +155,11 @@ func New(model string, opts api.Options) (*LLM, error) {
 }
 
 func (llm *LLM) Close() {
+	llm.gc = true
+
+	llm.mu.Lock()
+	defer llm.mu.Unlock()
+
 	defer C.llama_free_model(llm.model)
 	defer C.llama_free(llm.ctx)
 
@@ -158,6 +167,9 @@ func (llm *LLM) Close() {
 }
 
 func (llm *LLM) Predict(ctx []int, prompt string, fn func(api.GenerateResponse)) error {
+	llm.mu.Lock()
+	defer llm.mu.Unlock()
+
 	C.llama_reset_timings(llm.ctx)
 
 	tokens := make([]C.llama_token, len(ctx))
@@ -174,6 +186,8 @@ func (llm *LLM) Predict(ctx []int, prompt string, fn func(api.GenerateResponse))
 			break
 		} else if err != nil {
 			return err
+		} else if llm.gc {
+			return io.EOF
 		}
 
 		b.WriteString(llm.detokenize(token))
