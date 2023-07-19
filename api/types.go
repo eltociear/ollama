@@ -133,6 +133,7 @@ type Options struct {
 
 	// Model options
 	NumCtx        int  `json:"num_ctx,omitempty"`
+	NumKeep       int  `json:"num_keep,omitempty"`
 	NumBatch      int  `json:"num_batch,omitempty"`
 	NumGPU        int  `json:"num_gpu,omitempty"`
 	MainGPU       int  `json:"main_gpu,omitempty"`
@@ -158,7 +159,7 @@ type Options struct {
 	MirostatTau      float32 `json:"mirostat_tau,omitempty"`
 	MirostatEta      float32 `json:"mirostat_eta,omitempty"`
 
-	NumThread int `json:"num_thread,omitempty"`
+	NumThread       int `json:"num_thread,omitempty"`
 }
 
 func DefaultOptions() Options {
@@ -188,6 +189,6 @@ func DefaultOptions() Options {
 		MirostatTau:      5.0,
 		MirostatEta:      0.1,
 
-		NumThread: runtime.NumCPU(),
+		NumThread:       runtime.NumCPU(),
 	}
 }

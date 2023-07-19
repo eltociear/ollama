@@ -1,5 +1,10 @@
 package llama
 
+import (
+	"fmt"
+	"time"
+)
+
 type node[T any] struct {
 	t    T
 	next *node[T]
@@ -25,40 +30,45 @@ func (d *deque[T]) Cap() int {
 	return d.capacity
 }
 
-func (d *deque[T]) Push(t T) {
-	if d.capacity > 0 && d.size >= d.capacity {
-		d.PopLeft()
-	}
+func (d *deque[T]) Push(ts ...T) {
+	for _, t := range ts {
+		if d.capacity > 0 && d.size >= d.capacity {
+			d.PopLeft()
+		}
 
-	n := node[T]{t: t}
-	if d.head != nil {
-		n.next = d.head
-		d.head.prev = &n
-		d.head = &n
-	} else {
-		d.head = &n
-		d.tail = &n
-	}
+		n := node[T]{t: t}
+		if d.head != nil {
+			n.next = d.head
+			d.head.prev = &n
+			d.head = &n
+		} else {
+			d.head = &n
+			d.tail = &n
+		}
 
-	d.size++
+		d.size++
+	}
 }
 
-func (d *deque[T]) PushLeft(t T) {
-	if d.capacity > 0 && d.size >= d.capacity {
-		d.Pop()
-	}
+func (d *deque[T]) PushLeft(ts ...T) {
+	for _, t := range ts {
+		if d.capacity > 0 && d.size >= d.capacity {
+			d.Pop()
+		}
 
-	n := node[T]{t: t}
-	if d.tail != nil {
-		n.prev = d.tail
-		d.tail.next = &n
-		d.tail = &n
-	} else {
-		d.head = &n
-		d.tail = &n
-	}
+		n := node[T]{t: t}
+		if d.tail != nil {
+			n.prev = d.tail
+			d.tail.next = &n
+			d.tail = &n
+		} else {
+			d.head = &n
+			d.tail = &n
+		}
 
-	d.size++
+		d.size++
+
+	}
 }
 
 func (d *deque[T]) Pop() *T {
@@ -101,4 +111,21 @@ func (d *deque[T]) Data() (data []T) {
 	}
 
 	return data
+}
+
+func (d *deque[T]) Range(fn func(t T) bool) {
+	for n := d.head; n != nil; n = n.next {
+		if !fn(n.t) {
+			break
+		}
+	}
+}
+
+func parseDurationMs(ms float64) time.Duration {
+	dur, err := time.ParseDuration(fmt.Sprintf("%fms", ms))
+	if err != nil {
+		panic(err)
+	}
+
+	return dur
 }
