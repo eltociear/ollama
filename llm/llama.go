@@ -1,4 +1,4 @@
-package llama
+package llm
 
 /*
 #cgo CPPFLAGS: -O3 -DNDEBUG=1
@@ -99,7 +99,11 @@ type llama struct {
 	api.Options
 }
 
-func New(model string, opts api.Options) (*llama, error) {
+type llamaHyperparameters struct {
+	NumVocab, NumEmbd, NumMult, NumHead, NumLayer, NumRot, FileType uint32
+}
+
+func newLlama(model string, opts api.Options) (*llama, error) {
 	if _, err := os.Stat(model); err != nil {
 		return nil, err
 	}

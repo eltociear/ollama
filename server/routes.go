@@ -16,7 +16,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/jmorganca/ollama/api"
-	"github.com/jmorganca/ollama/llama"
+	"github.com/jmorganca/ollama/llm"
 )
 
 func GenerateHandler(c *gin.Context) {
@@ -51,7 +51,7 @@ func GenerateHandler(c *gin.Context) {
 		return
 	}
 
-	llm, err := llama.New(model.ModelPath, opts)
+	llm, err := llm.New(model.ModelPath, opts)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

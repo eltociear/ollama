@@ -19,6 +19,7 @@ import (
 	"text/template"
 
 	"github.com/jmorganca/ollama/api"
+	"github.com/jmorganca/ollama/llm"
 	"github.com/jmorganca/ollama/parser"
 )
 
@@ -77,9 +78,13 @@ type LayerReader struct {
 }
 
 type ConfigV2 struct {
+	NumVocab uint32 `json:"num_vocab"`
+	FileType string `json:"file_type"`
+	RootFS   RootFS `json:"rootfs"`
+
+	// required by spec
 	Architecture string `json:"architecture"`
 	OS           string `json:"os"`
-	RootFS       RootFS `json:"rootfs"`
 }
 
 type RootFS struct {
@@ -195,6 +200,11 @@ func CreateModel(name string, path string, fn func(status string)) error {
 		return err
 	}
 
+	config := ConfigV2{
+		Architecture: "amd64",
+		OS:           "linux",
+	}
+
 	var layers []*LayerReader
 	params := make(map[string]string)
 
@@ -230,6 +240,17 @@ func CreateModel(name string, path string, fn func(status string)) error {
 				}
 				defer file.Close()
 
+				ggml, err := llm.DecodeGGML(file, "llama")
+				if err != nil {
+					return err
+				}
+
+				config.NumVocab = ggml.NumVocab
+				config.FileType = ggml.FileType.String()
+
+				// reset the file
+				file.Seek(0, io.SeekStart)
+
 				l, err := CreateLayer(file)
 				if err != nil {
 					return fmt.Errorf("failed to create layer: %v", err)
@@ -248,7 +269,6 @@ func CreateModel(name string, path string, fn func(status string)) error {
 			}
 		case "license", "template", "system", "prompt":
 			fn(fmt.Sprintf("creating %s layer", c.Name))
-			// remove the prompt layer if one exists
 			mediaType := fmt.Sprintf("application/vnd.ollama.image.%s", c.Name)
 			layers = removeLayerFromLayers(layers, mediaType)
 
@@ -292,7 +312,7 @@ func CreateModel(name string, path string, fn func(status string)) error {
 
 	// Create a layer for the config object
 	fn("creating config layer")
-	cfg, err := createConfigLayer(digests)
+	cfg, err := createConfigLayer(config, digests)
 	if err != nil {
 		return err
 	}
@@ -473,7 +493,7 @@ func getLayerDigests(layers []*LayerReader) ([]string, error) {
 // CreateLayer creates a Layer object from a given file
 func CreateLayer(f io.ReadSeeker) (*LayerReader, error) {
 	digest, size := GetSHA256Digest(f)
-	f.Seek(0, 0)
+	f.Seek(0, io.SeekStart)
 
 	layer := &LayerReader{
 		Layer: Layer{
@@ -742,15 +762,10 @@ func pullModelManifest(mp ModelPath, username, password string) (*ManifestV2, er
 	return m, err
 }
 
-func createConfigLayer(layers []string) (*LayerReader, error) {
-	// TODO change architecture and OS
-	config := ConfigV2{
-		Architecture: "arm64",
-		OS:           "linux",
-		RootFS: RootFS{
-			Type:    "layers",
-			DiffIDs: layers,
-		},
+func createConfigLayer(config ConfigV2, layers []string) (*LayerReader, error) {
+	config.RootFS = RootFS{
+		Type:    "layers",
+		DiffIDs: layers,
 	}
 
 	configJSON, err := json.Marshal(config)

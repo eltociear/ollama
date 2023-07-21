@@ -1,4 +1,4 @@
-package llama
+package llm
 
 type node[T any] struct {
 	t    T
